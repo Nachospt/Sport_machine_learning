@@ -1,10 +1,16 @@
 ####################################### BIPLOT DATA ANALYSIS ####################################
-## Step 1: data extraction
-## Step 2: analysis (code control function when possible)
-## Step 3 reporting if it was possible to do the analysis
-## Step 4: save the results
+## Table requirements: first column is rownumber, second sescon key, Date must be "%Y/%m/%d %I:%M:%S" string
+## It is set for all_time aggregation. For other kind of aggregation make proper adjustments.
 
 ## Step 1: data extraction
+## Step 2: data preparation, filtering
+## Step 2: data preparation, imputation
+## Step 2: data preparation, key changed for contact name
+## Step 3: data analysis
+## Step 4: saving results, image
+## Step 4: saving results, text
+
+############## Step 1: data extraction ####
 setwd('C:\\Users\\Ignacio S-P\\Desktop\\R Data processing\\Houston Texans\\HoustonTables\\')
 my_files <- list.files(pattern = "\\.csv$")
 
@@ -14,7 +20,7 @@ colnames(Table.reference) = c("Table", "Variable")
 ## Read all at once
 my_data <- lapply(my_files, read.csv, stringsAsFactors = FALSE)
 
-## Step 2: analysis (code control function when possible)
+############## Step 2: data preparation, filtering ####
 ## Removing columns with too many NA. Criteria 70% NA
 F.Imputation <- function(x) {
     NAvariables <- c()
@@ -52,7 +58,7 @@ F.Imputation <- function(x) {
       Pre_NAfiltered = Pre2_NAfiltered
     }
 
-  ## REMOVING COLUMNS AGAIN
+## Again removing columns with too many NA. Criteria 70% NA
     NAvariables <- c()
     for (z in 2:length(Pre_NAfiltered)) {
       if ((sum(is.na(Pre_NAfiltered[,z]))/length(Pre_NAfiltered[,z])) > 0.7) {
@@ -68,7 +74,7 @@ F.Imputation <- function(x) {
       NAfiltered = Pre_NAfiltered
     }
   
-  ## Check NA values functions
+  ## Functions to check NA values
   # library(VIM)
   # md.pattern(data)
   # aggr_plot <- aggr(data, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(data), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
@@ -76,6 +82,8 @@ F.Imputation <- function(x) {
   
   ## Imputation of the rest of NA values
   # methods(mice)
+    
+############## Step 2: data preparation, imputation ####
   Pre_NAImputed = c()
   NAImputed = c()
     if (sum(sapply(NAfiltered, function(x) { sum(is.na(x)) })) > 0 ) {
@@ -105,12 +113,13 @@ F.Imputation <- function(x) {
       NAImputed = NAfiltered[,-c(1,3)]
     }
   print(NAImputed)
-# Check there are no more NAs/ Imputation
+  
+# To check there are no more NAs/ Imputation
 # prueba = mice.impute.sample(NAImputed, ry = FALSE, x = NULL)
 # sum(sapply(prueba, function(x) { sum(is.na(x)) }))
+  
+############## Step 2: data preparation, key changed for contact name ####
 colnames(NAImputed)[1] = "ContactId"
-
-# Adding row labels
  Pre_Analysis.tables = c()
  Analysis.tables = c()
  Pre_Analysis.tables = NAImputed
@@ -120,8 +129,7 @@ colnames(NAImputed)[1] = "ContactId"
  colnames(Analysis.tables)[1] = "PlayerName"
  return(Analysis.tables)
 }
-
-## Biplot looping function (alltime files)
+############## Step 3: data analysis ####
 F.CycleBiplot <- function(x) {
   colnames(x)[c(1,2)] = c("X", "ContactId")
   g.list = list()
@@ -130,7 +138,7 @@ F.CycleBiplot <- function(x) {
     Analysis.Columns = which(colnames(x) %in% Table.reference.cols)
     if (!is.null(Analysis.Columns) && length(Analysis.Columns) > 3) {
       Biplot.table = F.Imputation(x[, c(Analysis.Columns)])
-## First team
+## First team (addtional rows selection)
       Including.rows = Firstteam
       Including.col.list = sapply(Biplot.table$PlayerName, function(x)
         if (x %in% Including.rows) {
@@ -138,9 +146,10 @@ F.CycleBiplot <- function(x) {
         } else {
           return(FALSE)
         })
+## Method functions
       Biplot.table = Biplot.table[Including.col.list, ]
       g = PCA.Biplot(Biplot.table[,-1], alpha = 2, dimension = 3, Scaling = 5, sup.rows = NULL, sup.cols = NULL)
-## Saving image
+############## Step 4: saving results, image ####
       Biplot.Name = paste("Biplot","_", z, "_", unique(Table.reference$Table)[z], NROW(Biplot.table),  ".png", sep = "")
       png(filename = Biplot.Name)
       plot(g, IndLabels = Biplot.table[,1])
@@ -153,7 +162,7 @@ F.CycleBiplot <- function(x) {
 
 Results <- lapply(my_data, FUN = F.CycleBiplot)
 
-## Saving text results
+############## Step 4: saving results, text ####
 lapply(Results, function(x)
   for (z in 1:length(Results)) {
   BiplotName = paste("Table", "Biplot", unique(Lista)[z], system.time, ".png")

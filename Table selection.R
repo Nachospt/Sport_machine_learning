@@ -1,6 +1,10 @@
 ########################################## DATA JOINING #####################################################
 
 ## 0.Step: Load libraries and database connection
+## 1.Step: Table Selection and filtering
+## 2.Step: Data normalization
+
+############## 0.Step: Load libraries and database connection ####
 
 ## Libraries
 library(data.table)
@@ -15,26 +19,28 @@ library(lubridate)
 library(lattice)
 
 ## Database connection
-ch <- odbcConnect("hou", uid = "texans_daas", pwd = "Password123")
+ch <- odbcConnect("", uid = "", pwd = "")
 DB.info = sqlTables(ch)
 
-## Extracting the tables of interest
-DB.info = subset(DB.info, (TABLE_SCHEM == "e10") & (TABLE_TYPE == "VIEW"))
+## Extracting the tables of interest (views with "Latest" in the name)
+DB.info = subset(DB.info, (TABLE_SCHEM == "") & (TABLE_TYPE == "VIEW"))
 Pre.tablenames = DB.info$TABLE_NAME
 indx = grepl("Latest", Pre.tablenames)
 Tablenames = Pre.tablenames[!indx]
 
 Table.list <- lapply(1:length(Tablenames), function(z) {
-  query = paste("SELECT * FROM ", "[e10].[", Tablenames[z], "]", sep="")
+  query = paste("SELECT * FROM ", "[].[", Tablenames[z], "]", sep="")
   print(query)
   return(sqlQuery(ch, query, stringsAsFactors = FALSE))
 })
 names(Table.list) = Tablenames
 
-## (Contact names - Id list)
-df.contacts = sqlQuery(ch, "SELECT * FROM [e10].[Contacts]", stringsAsFactors = FALSE)[,c(1,3,4)]
+## Extracting the table with Contact name - Id
+df.contacts = sqlQuery(ch, "SELECT * FROM [].[Contacts]", stringsAsFactors = FALSE)[,c(1,3,4)]
 
-## Table Selection (Conditions are defined in F.ColumnConditions and checked in F.TableConditions)
+############## 1.Step: Table Selection and filtering ####
+## (Conditions are defined in F.ColumnConditions and checked in F.TableConditions)
+
 ## Dates for date conditions
 Start.date = as.POSIXct(as.Date('2016-09-01'))
 End.date = as.POSIXct(as.Date('2017-02-01'))
@@ -81,7 +87,7 @@ F.TableConditions <- function(x) {
 List.tablesused = sapply(FUN = F.TableConditions, Table.list)
 Final.tables = Table.list[List.tablesused]
 
-## Cutting tables to dates of interest
+## Data out of the range of interest is removed from everytable
 Start.on = as.Date('2010-09-01')
 Start.off = as.Date('2018-02-01')
 for (z in 1:length(Final.tables)) {
@@ -105,7 +111,9 @@ output <- file("Table-Variable.csv", "w")
 write.csv(NamesTable, file = output)
 close(output)
 
-## Making a list of unique Session-player combination and all unique variables
+############## 2.Step: Data normalization ####
+## 'Full.table', an empty table with all rows of columns will be created, then values will be transfered
+## Making a list of unique Session-player combination (rows) and all unique variables (columns)
 Pre.sescon.list = c()
 Pre.variables.list = c()
 for (z in 1:length(Final.tables)) {
@@ -130,6 +138,7 @@ Full.table$SessionId = Sescon.vector
 
 ## Loops that transfer the values
 ## (somehow slow but couldnt think of how to use apply methods which are used to return something, not to change global enviroment entities)
+## (Probably can be improved in the future if needed)
 for (p in 1:length(Final.tables)) {
   x = Final.tables[[p]]
   print(names(Final.tables[p]))

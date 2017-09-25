@@ -3,19 +3,20 @@
 
 ## 1.Step: Dim function
 ## 2.Step: Transform date and remove nominal variables
-## 3.Step: Aggregate the data
+## 3.Step: Aggregate the data, control functions
+## 3.Step: Aggregate the data, table creation
 ## 4.Step: Save table and free RAM
 ## 5.Step: Return to 2 or end if all aggregations tables were created
 
-## 1.Step: Dim function
+############## 1.Step: Dim function ####
 F.Dataggregate <- function(M, Date, ..., year.week = "y", year.month = "y", week = "y", month = "y", year = "y", season = "y", alltime = "y", seasonstart = 8) {
- 
-## 2.Step: Transform date
+  
+############## 2.Step: Transform date ####
  M$Date = as.POSIXct(strptime(M[, Date], "%Y/%m/%d %I:%M:%S"))
  Start.date = min(M[,"Date"])
  End.date = max(M[,"Date"])
  
-## 2.Step: Remove the non-numeric variables (but date)
+############## 2.Step: Remove the non-numeric variables (but Date) ####
  Pre.Num.Columns = list()
  for (z in 1:length(M)) {
    Pre.Num.Columns[z] = is.numeric(M[,z])
@@ -24,16 +25,16 @@ F.Dataggregate <- function(M, Date, ..., year.week = "y", year.month = "y", week
  M = cbind(M[1], M[, Num.Columns], M[, "Date"])
  
  ## Small details to fix
- ## Date Lost his name in the process, we add it
+ ## Date lost his name in the process, we add it
  names(M)[length(M)]="Date"
  ## SessionId is in fact a concatenation of SessionId and ContactId. We need to separate it for the aggregations
  M$SessionId = substr(M$SessionId, 38, 73)
- 
+
+############## 3.Step: Aggregate the data, control functions ####
  table = "beginning"
  repeat {
-## Table aggregation control conditions
-## Every step sets target table. If "n" is given as argument for the 4 kinds of aggregations, it will be
-## forwarded to the next data table type.
+## Every run creates a table with a different kind of aggregation if it was defined that way
+## in the function argument (by default it is). It iterates along all aggregation types
   if (table == "beginning" && year.week == "y") {
       table = "year.week"
       process = "y"
@@ -90,12 +91,10 @@ F.Dataggregate <- function(M, Date, ..., year.week = "y", year.month = "y", week
     process = "n"
   }
    
-   
    print(table)
    print(process)
 
-## Identify target table condition and step 2 starts
-## 3.Step: Aggregate the data
+############## 3.Step: Aggregate the data, table creation ####
    
   if (process == "y") {
     
@@ -106,11 +105,11 @@ F.Dataggregate <- function(M, Date, ..., year.week = "y", year.month = "y", week
      endtable2 = endtable %>%
        group_by(endtable[,1], endtable$week) %>%
        summarize(W = min(endtable[, "Date"], na.rm = TRUE))
-     
 
-## A typical aggregation formula can not easily be used with an undetermined number of columns. A loop has been created for that purpouse
-## As indexing in the summarize function with a vector containing the name of the variable does not work,
-## the name is stored in a vector, then changed, refered with the changed name in the function and returned to original in endtable
+## Typical aggregation formulae can not easily be used with an undetermined number of columns. A loop has
+## been created for that purpouse. As indexing does not work in the summarize function with a vector
+## containing the name of the variable, the name is stored in a vector, then changed, refered with the
+## changed name in the function and returned to original in endtable
      for (z in 2:(length(endtable)-1)) {
        KeepName = names(endtable)[z]
        names(endtable)[z] = "fixed"
@@ -122,7 +121,6 @@ F.Dataggregate <- function(M, Date, ..., year.week = "y", year.month = "y", week
        names(temp2)[1] = KeepName
        endtable2 = cbind(as.data.frame(endtable2), temp2)
      }
-     
     
 ## YEAR MONTH (1-12)  
      } else if (table == "year.month") {
@@ -183,8 +181,6 @@ F.Dataggregate <- function(M, Date, ..., year.week = "y", year.month = "y", week
         endtable2 = cbind(as.data.frame(endtable2), temp2)
       }
       
-      
-    
 ## YEAR
       } else if (table == "year") {
         endtable = M
